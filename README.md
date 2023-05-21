@@ -110,7 +110,7 @@ sudo apt install certbot python3-certbot-nginx
 ```bash
 sudo certbot --nginx
 ```
-# Далее займемся устанановкой и настройкой nextcloud
+# Далее займемся установкой и настройкой nextcloud
 
 sudo mkdir -p /app/nextcloud/nextcloud/{apps,config,data}
 sudo chown -R $USER:$USER /app/nextcloud/
