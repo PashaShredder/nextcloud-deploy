@@ -1,4 +1,4 @@
-# nginx-proxy-nextcloud-docker-postgresql-redis
+
 
 
 ### Краткое описание и необходиме действия которые нужно выполнить 
