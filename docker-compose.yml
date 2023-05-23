@@ -2,22 +2,24 @@ version: "2.1"
 
 services:
   nextcloud:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: nextcloud-23
+    container_name: nextcloud
+    image: "nextcloud:25.0-apache"
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/INPUT_YOUR_TZ
+      - TZ=Europe/Kiev
       - REDIS_HOST=redis-nextcloud
-      - REDIS_HOST_PASSWORD=your_redis_password
+      - REDIS_HOST_PASSWORD=lafalarami33redis
+      - PHP_MEMORY_LIMIT=3G
+      - PHP_UPLOAD_LIMIT=1024M
+      - PHP_POST_MAX_SIZE=1024M
+      - PHP_MAX_INPUT_TIME=7200
+      - PHP_MAX_EXECUTION_TIME=7200
     volumes:
-      - ./nextcloud/apps:/var/www/html/apps
-      - ./nextcloud/custom_apps:/var/www/html/custom_apps
-      - ./nextcloud/config:/var/www/html/config
-      - ./nextcloud/data:/var/www/html/data
-      - ./nextcloud.ini:/usr/local/etc/php/conf.d/nextcloud.ini
+      - nextcloud_apps:/var/www/html/apps
+      - nextcloud_custom_apps:/var/www/html/custom_apps
+      - nextcloud_config:/var/www/html/config
+      - nextcloud_data:/var/www/html/data
     ports:
       - 8083:80
     restart: unless-stopped
@@ -34,21 +36,28 @@ services:
     environment:
       - POSTGRES_DB=nextcloud
       - POSTGRES_USER=nextcloud
-      - POSTGRES_PASSWORD=your_pgsql_password
+      - POSTGRES_PASSWORD=lafalarami33
     volumes:
-      - ./DB:/var/lib/postgresql/data
+      - database:/var/lib/postgresql/data
     networks:
       - default
 
   redis-nextcloud:
     image: redis:alpine
     container_name: redis-nextcloud
-    command: redis-server --requirepass your_redis_password
+    command: redis-server --requirepass lafalarami33redis
     restart: unless-stopped
     networks:
       - default
 
 networks:
   default:
-    external: true
     name: docnet
+
+volumes:
+  nextcloud_apps:
+  nextcloud_custom_apps:
+  nextcloud_config:
+  nextcloud_data:
+  database:
+
