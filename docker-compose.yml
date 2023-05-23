@@ -9,7 +9,7 @@ services:
       - PGID=1000
       - TZ=Europe/Kiev
       - REDIS_HOST=redis-nextcloud
-      - REDIS_HOST_PASSWORD=lafalarami33redis
+      - REDIS_HOST_PASSWORD=your_redis_password
       - PHP_MEMORY_LIMIT=3G
       - PHP_UPLOAD_LIMIT=1024M
       - PHP_POST_MAX_SIZE=1024M
@@ -36,7 +36,7 @@ services:
     environment:
       - POSTGRES_DB=nextcloud
       - POSTGRES_USER=nextcloud
-      - POSTGRES_PASSWORD=lafalarami33
+      - POSTGRES_PASSWORD=your_pgsql_password
     volumes:
       - database:/var/lib/postgresql/data
     networks:
@@ -45,7 +45,7 @@ services:
   redis-nextcloud:
     image: redis:alpine
     container_name: redis-nextcloud
-    command: redis-server --requirepass lafalarami33redis
+    command: redis-server --requirepass your_redis_password
     restart: unless-stopped
     networks:
       - default
