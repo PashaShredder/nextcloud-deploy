@@ -11,7 +11,7 @@
 * пробросить порты на Вашем роутере для доступа к серверу из внем "*мы будем использовать 80 и 443, а так же 22 для ssh *"
 * установить и сконфигурировать nginx 
 * получить сертификаты для https соединения "*мы будем использовать Certbot от Let`sEncrypt*"
-* создать Dockerfile и docker-compose.yml для установки nextcloud в docker контейнере для удобства использования и последующего обновления
+* создать docker-compose.yml для установки nextcloud в docker контейнере для удобства использования и последующего обновления
 
 # Установка и настройка nginx proxy 
 ### Обновим пакеты
@@ -111,45 +111,37 @@ sudo apt install certbot python3-certbot-nginx
 sudo certbot --nginx
 ```
 # Далее займемся установкой и настройкой nextcloud
-
-sudo mkdir -p /app/nextcloud/nextcloud/{apps,config,data}
-sudo chown -R $USER:$USER /app/nextcloud/
-cd /app/nextcloud
-sudo docker network create -d bridge docnet
-sudo docker network connect evilcorp portainer
-sudo nano docker-compose.yml
 ```bash
-FROM nextcloud:23.0.2-apache
-
-RUN apt-get update \
-    && apt-get install -y nano \
-    && rm -rf /var/lib/apt/lists/*
-
-CMD ["apache2-foreground"]
+sudo mkdir -p /app/nextcloud
+cd /app/nextcloud
 ```
+```bash
 sudo nano docker-compose.yml
+```
 
 ```bash
 version: "2.1"
 
 services:
   nextcloud:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: nextcloud-23
+    container_name: nextcloud
+    image: "nextcloud:25.0-apache"
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=Europe/INPUT_YOUR_TZ
+      - TZ=Europe/Kiev
       - REDIS_HOST=redis-nextcloud
       - REDIS_HOST_PASSWORD=your_redis_password
+      - PHP_MEMORY_LIMIT=3G
+      - PHP_UPLOAD_LIMIT=1024M
+      - PHP_POST_MAX_SIZE=1024M
+      - PHP_MAX_INPUT_TIME=7200
+      - PHP_MAX_EXECUTION_TIME=7200
     volumes:
-      - ./nextcloud/apps:/var/www/html/apps
-      - ./nextcloud/custom_apps:/var/www/html/custom_apps
-      - ./nextcloud/config:/var/www/html/config
-      - ./nextcloud/data:/var/www/html/data
-      - ./nextcloud.ini:/usr/local/etc/php/conf.d/nextcloud.ini
+      - nextcloud_apps:/var/www/html/apps
+      - nextcloud_custom_apps:/var/www/html/custom_apps
+      - nextcloud_config:/var/www/html/config
+      - nextcloud_data:/var/www/html/data
     ports:
       - 8083:80
     restart: unless-stopped
@@ -168,7 +160,7 @@ services:
       - POSTGRES_USER=nextcloud
       - POSTGRES_PASSWORD=your_pgsql_password
     volumes:
-      - ./DB:/var/lib/postgresql/data
+      - database:/var/lib/postgresql/data
     networks:
       - default
 
@@ -182,10 +174,16 @@ services:
 
 networks:
   default:
-    external: true
     name: docnet
+
+volumes:
+  nextcloud_apps:
+  nextcloud_custom_apps:
+  nextcloud_config:
+  nextcloud_data:
+  database:
 ```
-### В конфиге  обращаем внимание на строки PUID и PGID и указываем от которого хотим запускать контейнер
+### В конфиге  обращаем внимание на строки PUID и PGID и указываем от которого хотим запускать контейнер 
 ### Конфигурируем PostgreSQL
 ```bash
 - POSTGRES_DB=nextcloud
@@ -193,18 +191,15 @@ networks:
 - POSTGRES_PASSWORD=your_pgsql_password
 ```
 
-### Создаём файл nextcloud.ini с учётом ресурсов Вашего сервера
+### Для увеличения размера загружаемых файлов, использования оперативной памяти и тайм аута используем переменные окружения *environment*
 ```bash
-upload_max_filesize=1024M
-post_max_size=1024M
-memory_limit=2G
-max_input_time 7200
-max_execution_time 7200
+      - PHP_MEMORY_LIMIT=3G
+      - PHP_UPLOAD_LIMIT=1024M
+      - PHP_POST_MAX_SIZE=1024M
+      - PHP_MAX_INPUT_TIME=7200
+      - PHP_MAX_EXECUTION_TIME=7200
 ```
-*в случае возникновения трудностей с конфигурацием, может потребоватся внести изменения в apache файл внутри самого контейнера(для этого мы предварительно установили редактор nano внутрь контейнера)*
-```bash
-sudo docker exec -it nextcloud-23 bash
-```
+
 # Подключаем Redis
 ```bash
 - REDIS_HOST=redis-nextcloud
@@ -248,19 +243,21 @@ redis-cli -a your_redis_password -h IPAddress monitor
 
 Переключимся на браузер с Nextcloud и обновим там страницу. В результате чего в логе мы увидим как побежали данные
 
-*При запуске сайта придумываем комбинацию из сложного логина и пароля для администратора облака и вписываем в соответствующие поля.*
 
-*Так как мы хотим использовать PostgreSQL вместо SQLite, то нам нужно явно указать это. Для этого нажимаем Хранилище и база данных*
-
-*Откроется окно с дополнительными настройками.*
-
-*Каталог с данными /Data оставляем по умолчанию.*
-
-*Выбираем пункт PostgreSQL. Нам необходимо вписать туда свои данные, которые находятся в фаиле docker-compose.yml.*
-
-# Ввиду того что некоторые плагины требуют принудительный https включаем его, а так же в этом файле указываем trusted_domains 
-sudo docker-compose down
-sudo nano nextcloud/config/config.php
+# Ввиду того что некоторые плагины требуют принудительный https включаем его, а так же в этом файле указываем trusted_domains (если не указано)
+```bash
+sudo docker compose stop
+```
+```bash
+sudo docker exec -it --user root <your_container_id_or_name> bash
+```
+```bash
+apt-get update
+apt install nano
+```
+```bash
+nano config/config.php
+```
 ```bash
 <?php
 $CONFIG = array (
@@ -270,49 +267,15 @@ $CONFIG = array (
   'apps_paths' => 
 ```
 ```bash
-trusted_domains' => 
+trusted_domains' =>  # редактируем в том случае если Ваш домен отсутствует
   array (
     0 => 'your_domain.com',
     1 => 'www.your_domain.com',
     2 => 'nextcloud.your_domain.com',
   ),
 ```
-# Устранение проблем при загрузке больших файлов ввиду того что всё упирается в производительность диска и таймауты php и может работать некорректно
-```bash
-sudo /usr/bin/docker exec -u www-data nextcloud-23 php -f /var/www/html/occ config:app:set files max_chunk_size --value 20971520
-```
 
-# Выполняем обновление Nextcloud не перепрыгивая через версии, это важно!
-```bash
-cd /app/nextcloud
-```
-```bash
-sudo docker-compose down
-```
-```bash
-ls -l
-```
-```bash
-mkdir old
-```
-```bash
-sudo cp -r DB docker-compose.yml nextcloud nextcloud.ini Dockerfile old 
-```
-```bash
-sudo nano Dockerfile
-```
-```bash
-FROM nextcloud:24.0.0-apache
 
-RUN apt-get update \
-    && apt-get install -y nano \
-    && rm -rf /var/lib/apt/lists/*
-
-CMD ["apache2-foreground"]
-```
-```bash
-sudo docker-compose up -d
-```
-Далее открываем Nextcloud в браузере и завершаем обновление
-
-# За дополнительной информацией можете посетить https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html
+# За дополнительной информацией можете посетить 
+https://docs.nextcloud.com
+https://hub.docker.com/_/nextcloud
