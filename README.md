@@ -110,6 +110,8 @@ sudo apt install certbot python3-certbot-nginx
 ```bash
 sudo certbot --nginx
 ```
+### Установка Docker https://docs.docker.com/engine/install/  
+### docker compose  https://github.com/docker/compose/releases
 # Далее займемся установкой и настройкой nextcloud
 ```bash
 sudo mkdir -p /app/nextcloud
