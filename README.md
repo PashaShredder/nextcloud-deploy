@@ -1,58 +1,61 @@
 
 
+### Brief Description and Necessary Actions to Perform
+* Choose a service (cloud, VPS, etc.) "in our case, a mini-PC"
+* Install/bring up the OS "in our case, Ubuntu"
+* For enhanced security, create a user (not root, user, user1, etc.) with a strong password if it's your personal VPS.
+* Connect via SSH using ssh-copy-id username@servername and disable password authentication in the SSH configuration file for improved security.
+* Register or obtain a domain name (create an A record in the admin panel, specifying your public IP) as we will need it later.
+* Order (paid service) a public external IP address ("white IP") from your provider. "Alternatively, DynDNS is an option, but we won't consider it here."
+* Set up port forwarding on your router to access the server externally. "We will use ports 80 and 443, as well as 22 for SSH."
+* Install and configure Nginx.
+* Obtain HTTPS certificates. "We will use Certbot from Let's Encrypt."
+* Create a docker-compose.yml file to install Nextcloud in a Docker container for convenience and future updates.
 
-### Краткое описание и необходиме действия которые нужно выполнить 
-* определиться с выбором сервиса (cloud, VPS, etc.) "*в нашем случае неттоп*"
-* установить/поднять ОС "*в нашем случае Ubuntu*" 
-* для повышения безопасности создать пользователя (не root, user, user1, etc.) с надёжным паролем если речь идёт об Вашем личном VPS.
-* выполняем подключение по ssh с помощью ssh-copy-id username@servername после отключаем в файле sshd аутентификацию по паролю для повышения безопасности
-* зарегистрировать или же получить доменное имя (в админ панели создать А запись(указав Ваш белый ip) и CNAME запись, в дальнейшем нам это понадобится
-* заказать(услуга платная) у Вашего провайдера публичный внешний ip адрес ("белый") "*есть ещё вариант с DynDNS но его мы рассматривать не будем*"
-* пробросить порты на Вашем роутере для доступа к серверу из внем "*мы будем использовать 80 и 443, а так же 22 для ssh *"
-* установить и сконфигурировать nginx 
-* получить сертификаты для https соединения "*мы будем использовать Certbot от Let`sEncrypt*"
-* создать docker-compose.yml для установки nextcloud в docker контейнере для удобства использования и последующего обновления
-
-# Установка и настройка nginx proxy 
-### Обновим пакеты
+# Installation and Configuration of Nginx Proxy
+### Update packages
 ```bash
 sudo apt update
 ```
-### Выполним установку nginx
+### Install Nginx
+
 ```bash
 sudo apt install nginx
 ```
-### Проверим статус приложения 
+### Check the status of the application
+
 ```bash
 sudo systemctl status nginx
 ```
-### Для того что бы nginx стартовал при запуске системы / или он не активен
+### Set Nginx to start on system boot, if not already active
+
 ```bash
 sudo systemctl enable nginx.service
 ```
-### Выполним переход в папку и создадим Ваш nginx proxy файл
+### Navigate to the directory and create your Nginx proxy file
+
 ```bash
 cd /etc/nginx/sites-available
 ```
 ```bash
-sudo nano nginx_name_file # обычно название совпадает с доменным именем или сайтом для избежания путаницы
+sudo nano nginx_name_file # Usually, the name corresponds to the domain name or site to avoid confusion
 ```
-### Добавляем следующие содержимое
+### ДAdd the following content
+
 ```bash
-upstream your_file_name { # "*указываем ip адреc и порт на котором запущен наш контейнер "
+upstream your_file_name { # "*Specify the IP address and port on which our container is running*"
   server 0.0.0.0:8083;
-  }  # так же можно указать ip Вашего сервера для проверки работоспособности 
-  # без поднятого контейнера но в таком случае необходимо закомментировать строки отмеченые "for_test" ,
-  # а так же весь блок с 443 портом
+  }  # You can also specify the IP of your server for testing purposes without a running container, but in # that case, you need to comment out the lines marked "for_test"
+  # as well as the entire block with port 443
 
 
-server { # "*блок перенаправления запросов с http на https*"
+server { # "*Block for redirecting HTTP requests to HTTPS*"
   listen 80;
   server_name nextcloud.your_domain.com; 
   return 301 https://nextcloud.your_domain.com$request_uri;      # "for_test"
 }
 
-server {  # "*блок https соединения с использованием SSl-сертификата*"
+server {  # "*HTTPS connection block using SSL certificate*"
   listen 443 ssl;
   server_name nextcloud.your_domain.com;
     ssl_certificate /etc/letsencrypt/live/nextcloud.your_domain.com/fullchain.pem; # managed by Certbot
@@ -60,12 +63,12 @@ server {  # "*блок https соединения с использование�
   include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
   ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 
-   # "* эти параметры нам нужны для определения размера загружаемых файлов
-   # (уменьшаем или увеличиваем с учётом разрядности файловой системы)*"
+   # "*These parameters are necessary for determining the size of uploaded files
+   # (increase or decrease depending on the file system's capacity)*"
   client_max_body_size 1024m; 
   client_body_buffer_size 128k;
 
-  location / { # "*этот блок отвечает за проксирование и обработку запросов*"
+  location / { # "*This block handles proxying and request processing*"
     proxy_set_header HOST $host;
     proxy_set_header X-Forwarded-Proto https;
     proxy_set_header X-Real-IP $remote_addr;
@@ -73,7 +76,7 @@ server {  # "*блок https соединения с использование�
     proxy_set_header X-Forwarded-Host $server_name;
 
     proxy_pass http://your_file_name;
-    # "*подключение буфера и таймаута для Вашего сервера*"
+    # "*connecting buffer and timeout for your server*"
     proxy_buffering on;
     proxy_buffer_size 16k;
     proxy_buffers 4 16k;
@@ -82,37 +85,42 @@ server {  # "*блок https соединения с использование�
   }
 }
 ```
-### Для активации nginx создадим символьную ссылку 
+### To activate Nginx, create a symbolic link
+
+
 ```bash
 sudo ln -s /etc/nginx/sites-available/your_nginx_file_name /etc/nginx/sites-enabled/
 ```
 
-### Что бы изменения вступили в силу выполняем 
+### To apply the changes, restart Nginx
+
+
 ```bash
-sudo systemctl restart nginx.service # для жёсткой перезагрузки
+sudo systemctl restart nginx.service # for hard reboot
+
 ```
 ```bash
-sudo systemctl reload nginx.service # для мягкой перезагрузки (предпочтительнее если необходимо выполнить перезагрузку плавно постепенно перезапуская службы)
+sudo systemctl reload nginx.service # for a soft reboot (preferred if you want to perform a graceful reboot gradually restarting services)
 
 ```
 
-### Для проверки правильности синтаксиса или наличиия ошибок 
+### You can check the syntax and test for any configuration errors
 ```bash
 sudo nginx -t
 ```
 
-### Установим сертификат с помощью Certbot # https://certbot.eff.org/
+### Installing and Configuring Certbot # https://certbot.eff.org/
 ```bash
 sudo apt install certbot python3-certbot-nginx
 ```
-### Запустим стандартную команду и следуя инструкциям выполним получение сертификата
-"*Важно! Certbot работает только с существующими доменными(хоть и существует возможность получить тестовый сертификат он работает по такому же принципу) именами ввиду того что он проверяет их наличие в DNS(если Вы зарегистрировали доменное имя и верно настроили его, а бот даёт ошибку, значит нужно подождать информация могла ещё не обновится , так же можно выполнить команду **ping** или **nslookup** для проверки работоспособности домена)*"
+### Run the standard command and follow the instructions to get the certificate
+"*Important! Certbot only works with existing domain names (although it is possible to get a test certificate, it works on the same principle) names because it checks their presence in the DNS (if you registered a domain name and configured it correctly, and the bot gives an error , then you need to wait, the information might not be updated yet, you can also run the **ping** or **nslookup** command to check the health of the domain)*"
 ```bash
 sudo certbot --nginx
 ```
-### Установка Docker https://docs.docker.com/engine/install/  
-### docker compose  https://github.com/docker/compose/releases
-# Далее займемся установкой и настройкой nextcloud
+### Install Docke https://docs.docker.com/engine/install/  
+### Install Docker Compose  https://github.com/docker/compose/releases
+### Next, let's install and configure nextcloud
 ```bash
 sudo mkdir -p /app/nextcloud
 cd /app/nextcloud
@@ -185,15 +193,15 @@ volumes:
   nextcloud_data:
   database:
 ```
-### В конфиге  обращаем внимание на строки PUID и PGID и указываем от которого хотим запускать контейнер 
-### Конфигурируем PostgreSQL
+### Adjust the PUID and PGID values to the user ID and group ID of the user you want to run the container as
+### Configure the PostgreSQL settings
 ```bash
 - POSTGRES_DB=nextcloud
 - POSTGRES_USER=nextcloud
 - POSTGRES_PASSWORD=your_pgsql_password
 ```
 
-### Для увеличения размера загружаемых файлов, использования оперативной памяти и тайм аута используем переменные окружения *environment*
+### To increase the size of uploaded files, use of RAM and timeout, use the environment variables *environment*
 ```bash
       - PHP_MEMORY_LIMIT=3G
       - PHP_UPLOAD_LIMIT=1024M
@@ -202,7 +210,7 @@ volumes:
       - PHP_MAX_EXECUTION_TIME=7200
 ```
 
-# Подключаем Redis
+# Connecting Redis
 ```bash
 - REDIS_HOST=redis-nextcloud
 - REDIS_HOST_PASSWORD=your_redis_password
@@ -214,39 +222,40 @@ redis-nextcloud:
   command: redis-server --requirepass your_redis_password
   restart: unless-stopped
 ```
-### После выполнения всех конфигураций запускаем контейнер и продолжаем настройку Redis
+### After completing all the configurations, we start the container and continue configuring Redis
 ```bash
 sudo docker-compose up -d
 ```
-### Для проверки работы Redis
+### To check if Redis is working
 ```bash
 sudo apt install redis-tools
 ```
-### Отобразим список всех контейнеров 
+### Display a list of all containers
+
 ```bash
 sudo docker ps
 ```
-### Открываем содержимое с учётом id или имени redis
+### Open content based on id or redis name
 ```bash
 sudo docker inspect redis-nextcloud
 ```
-находим интерисующий нас IPAddress и выполняем команду
+find the IPAddress that interests us and execute the command
 ```bash
 redis-cli -a your_redis_password -h IPAddress ping
 ```
-Если всё ок то в ответ мы получим PONG
+If everything is ok, then in response we will get PONG
 
-после выполняем 
+after we execute 
 ```bash
 redis-cli -a your_redis_password -h IPAddress monitor
 
 ```
-Ответ должен быть OK
+Answer should be OK
 
-Переключимся на браузер с Nextcloud и обновим там страницу. В результате чего в логе мы увидим как побежали данные
+Let's switch to the browser with Nextcloud and refresh the page there. As a result, in the log we will see how the data ran
 
 
-# Ввиду того что некоторые плагины требуют принудительный https включаем его, а так же в этом файле указываем trusted_domains (если не указано)
+# Due to the fact that some plugins require forced https, enable it, and also specify trusted_domains in this file (if not specified)
 ```bash
 sudo docker compose stop
 ```
@@ -269,7 +278,7 @@ $CONFIG = array (
   'apps_paths' => 
 ```
 ```bash
-trusted_domains' =>  # редактируем в том случае если Ваш домен отсутствует
+trusted_domains' =>  # edit if your domain is missing
   array (
     0 => 'your_domain.com',
     1 => 'www.your_domain.com',
@@ -278,6 +287,6 @@ trusted_domains' =>  # редактируем в том случае если В
 ```
 
 
-# За дополнительной информацией можете посетить 
+# For more information you can visit 
 https://docs.nextcloud.com
 https://hub.docker.com/_/nextcloud
